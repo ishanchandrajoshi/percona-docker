@@ -40,14 +40,16 @@ RUN     yum update -y -q \
              ) || true \
         ) \
         && ( ( ${WITH_PAM_LDAP} \
-               && yum install -y -q nss-pam-ldapd nscd \
+               && wget http://mirror.ghettoforge.org/distributions/gf/el/6/plus/x86_64/nss-pam-ldapd-0.9.8-1.gf.el6.x86_64.rpm \
+               && rpm -ih nss-pam-ldapd-0.9.8-1.gf.el6.x86_64.rpm \
+               && yum install -y -q nscd \
              ) || true \
         ) \
 # comment out any "user" entires in the MySQL config ("docker-entrypoint.sh" or "--user" will handle user switching)
 	&& sed -ri 's/^user/#&/' /etc/my.cnf \
 # purge and re-create /var/lib/mysql with appropriate ownership
 	&& rm -rf /var/lib/mysql && mkdir -p /var/lib/mysql /var/run/mysqld /etc/mysql/conf.d/ /var/log/mysql \
-	&& chown -R ${MYSQL_USER}:${MYSQL_GROUP} /var/lib/mysql /var/run/mysqld /var/log/mysql /etc/nslcd.conf /etc/nsswitch.conf \
+	&& chown -R ${MYSQL_USER}:${MYSQL_GROUP} /var/lib/mysql /var/run/mysqld /var/log/mysql /etc/nslcd.conf /etc/nsswitch.conf /var/lock/subsys /var/run/nslcd /etc/pam.d \
         && touch /var/log/mysql/error.log \
         && find /var/log/mysql* -exec sh -c "chown -v ${MYSQL_USER}:${MYSQL_GROUP} {}; chmod -v u+rw,g+r,o-rwx {}" \; \
 # ensure that /var/run/mysqld (used for socket and lock files) is writable regardless of the UID our mysqld instance ends up having at runtime
