@@ -6,9 +6,14 @@ ARG PROXYSQL_GROUP=mysql
 
 ENV PROXYSQL_USER $PROXYSQL_USER
 
-RUN sh -c "getent group ${PROXYSQL_GROUP} || groupadd -g 1001 ${PROXYSQL_GROUP}"
+RUN groupadd -g 99 nobody \
+    && usermod -u 99 -g 99 -c 'Nobody for RHEL based system' nobody \
+    && echo "nobody:x:65534:65534:Nobody for Debian based system:/nonexistent:/sbin/nologin" >> /etc/passwd \
+    && usermod -a -G users nobody
 
-RUN sh -c "getent passwd ${PROXYSQL_USER} || useradd -u 1001 -r -g $(getent group ${PROXYSQL_GROUP} | awk -F: '{print $3}') -s /sbin/nologin -c 'Default Application User' ${PROXYSQL_USER}"
+#RUN sh -c "getent group ${PROXYSQL_GROUP} || groupadd -g 1001 ${PROXYSQL_GROUP}"
+
+#RUN sh -c "getent passwd ${PROXYSQL_USER} || useradd -u 1001 -r -g $(getent group ${PROXYSQL_GROUP} | awk -F: '{print $3}') -s /sbin/nologin -c 'Default Application User' ${PROXYSQL_USER}"
 
 RUN echo 'debconf debconf/frontend select Noninteractive' | debconf-set-selections
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -24,7 +29,7 @@ RUN \
       percona-server-client-5.7 proxysql
 
 ADD proxysql.cnf /etc/proxysql.cnf
-RUN chown ${PROXYSQL_USER} /etc/proxysql.cnf
+RUN chown ${PROXYSQL_USER}:${PROXYSQL_GROUP} /etc/proxysql.cnf
 
 COPY proxysql-entry.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
