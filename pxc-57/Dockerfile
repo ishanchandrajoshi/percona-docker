@@ -9,10 +9,15 @@ ARG WITH_PAM_LDAP=false
 
 ENV MYSQL_USER $MYSQL_USER
 
-RUN sh -c "getent group ${MYSQL_GROUP} || groupadd -g 65534 ${MYSQL_GROUP}"
+RUN groupadd -g 65534 nogroup \
+    && usermod -u 99 -g 99 -c "Nobody user for RHEL based system" nobody \
+    && echo "nobody:x:65534:65534:Nobody user for Debian based system:/nonexistent:/sbin/nologin" >> /etc/passwd \
+    && usermod -a -G users nobody
 
-RUN usermod -u 99 nobody -l nobodycopy
-RUN sh -c "getent passwd ${MYSQL_USER} || useradd -u 65534 -r -g $(getent group ${MYSQL_GROUP} | awk -F: '{print $3}') -s /sbin/nologin -c 'Default Application User' ${MYSQL_USER}"
+#RUN sh -c "getent group ${MYSQL_GROUP} || groupadd -g 65534 ${MYSQL_GROUP}"
+
+#RUN usermod -u 99 nobody -l copynobody
+#RUN sh -c "getent passwd ${MYSQL_USER} || useradd -u 65534 -r -g $(getent group ${MYSQL_GROUP} | awk -F: '{print $3}') -s /sbin/nologin -c 'Default Application User' ${MYSQL_USER}"
 
 RUN yum update -y -q && yum install -y -q yum-utils \
 		ca-certificates wget
@@ -48,6 +53,7 @@ RUN     yum update -y -q \
 # purge and re-create /var/lib/mysql with appropriate ownership
 	&& rm -rf /var/lib/mysql && mkdir -p /var/lib/mysql /var/run/mysqld /etc/mysql/conf.d/ /var/log/mysql \
 	&& chown -R ${MYSQL_USER}:${MYSQL_GROUP} /var/lib/mysql /var/run/mysqld /var/log/mysql /etc/nsswitch.conf /etc/pam_ldap.conf /etc/pam.d \
+        && chmod g+rwx -R /var/lib/mysql /var/run/mysqld /var/log/mysql /etc/nsswitch.conf /etc/pam_ldap.conf /etc/pam.d \
         && touch /var/log/mysql/error.log \
         && find /var/log/mysql* -exec sh -c "chown -v ${MYSQL_USER}:${MYSQL_GROUP} {}; chmod -v u+rw,g+r,o-rwx {}" \; \
 # ensure that /var/run/mysqld (used for socket and lock files) is writable regardless of the UID our mysqld instance ends up having at runtime
@@ -66,6 +72,7 @@ RUN sed -ri 's/^log-error/#&/' /etc/my.cnf
 ADD node.cnf /etc/mysql/conf.d/node.cnf
 RUN echo '!includedir /etc/mysql/conf.d/' >> /etc/my.cnf
 RUN chown -R ${MYSQL_USER}:${MYSQL_GROUP} /etc/mysql
+RUN chmod g+rwx -R /etc/mysql
 
 COPY entrypoint.sh /entrypoint.sh
 COPY jq /usr/bin/jq
